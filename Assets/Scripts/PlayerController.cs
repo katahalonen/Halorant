@@ -26,20 +26,17 @@ public class PlayerController : MonoBehaviour
     public LayerMask groundLayers;
 
     public GameObject bulletImpact;
-    //public float timeBetweenShots = .1f;
     private float shotCounter;
     public float muzzleDisplayTime;
     private float muzzleCounter;
 
-    public float maxHeat = 10f, /*heatPerShot = 1f, */ coolRate = 4f, overheatCoolRate = 5f;
+    public float maxHeat = 10f, coolRate = 4f, overheatCoolRate = 5f;
     private float heatCounter;
     private bool overHeated;
 
     public Gun[] allGuns;
     private int selectedGun;
 
-
-    // Start is called before the first frame update
     void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
@@ -49,11 +46,15 @@ public class PlayerController : MonoBehaviour
         UIController.instance.weaponTempSlider.maxValue = maxHeat;
 
         SwitchGun();
+
+        Transform newTrans = SpawnManager.instance.GetSpawnPoint();
+        transform.position = newTrans.position;
+        transform.rotation = newTrans.rotation;
     }
 
-    // Update is called once per frame
     void Update()
     {
+        // Camera controls
         mouseInput = new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y")) * mouseSensitivity;
 
         transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y + mouseInput.x, transform.rotation.eulerAngles.z);
@@ -61,6 +62,7 @@ public class PlayerController : MonoBehaviour
         verticalRotStore += mouseInput.y;
         verticalRotStore = Mathf.Clamp(verticalRotStore, -60f, 60f);
 
+        // Added an option to invert vertical camera movement
         if (invertLook)
         {
             viewPoint.rotation = Quaternion.Euler(verticalRotStore, viewPoint.rotation.eulerAngles.y, viewPoint.rotation.eulerAngles.z);
@@ -72,6 +74,7 @@ public class PlayerController : MonoBehaviour
 
         moveDir = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
 
+        // Sprinting
         if(Input.GetKey(KeyCode.LeftShift))
         {
             activeMoveSpeed = runSpeed;
@@ -81,10 +84,12 @@ public class PlayerController : MonoBehaviour
             activeMoveSpeed = moveSpeed;
         }
 
+        // Basic Movement
         float yVel = movement.y;
         movement = ((transform.forward * moveDir.z) + (transform.right * moveDir.x)).normalized * activeMoveSpeed;
         movement.y = yVel;
 
+        // Checking if player is grounded with a raycast
         if(charCon.isGrounded)
         {
             movement.y = 0f;
@@ -92,6 +97,7 @@ public class PlayerController : MonoBehaviour
 
         isGrounded = Physics.Raycast(groundCheckPoint.position, Vector3.down, .25f, groundLayers);
 
+        // Jumping if player is grounded
         if(Input.GetButtonDown("Jump") && isGrounded)
         {
             movement.y = jumpForce;
@@ -101,6 +107,8 @@ public class PlayerController : MonoBehaviour
 
         charCon.Move( movement * Time.deltaTime);
 
+        // Shooting
+        // Deactivating muzzleflash
         if(allGuns[selectedGun].muzzleFlash.activeInHierarchy)
         {
             muzzleCounter -= Time.deltaTime;
@@ -111,6 +119,7 @@ public class PlayerController : MonoBehaviour
             }
         }
 
+        // Shooting if not overheated. Adding values accordingly to heatcounter while shooting and displaying an overheated message if overheated. Displaying heat values to weapon temp slider.
         if (!overHeated)
         {
             if (Input.GetMouseButtonDown(0))
@@ -147,7 +156,7 @@ public class PlayerController : MonoBehaviour
         }
         UIController.instance.weaponTempSlider.value = heatCounter;
 
-
+        // Switching guns with a mouse scrollwheel
         if(Input.GetAxisRaw("Mouse ScrollWheel") > 0f)
         {
             selectedGun++;
@@ -169,11 +178,17 @@ public class PlayerController : MonoBehaviour
             SwitchGun();
         }
 
+        // Selecting weapons using number keys
+        for(int i = 0; i <allGuns.Length; i++)
+        {
+            if(Input.GetKeyDown((i + 1).ToString()))
+            {
+                selectedGun = i;
+                SwitchGun();
+            }
+        }
 
-
-
-
-
+        // Freeing mouse with esc key and locking it again if window is clicked
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             Cursor.lockState = CursorLockMode.None;
@@ -187,6 +202,7 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // Shooting. Raycast from the middle of screen outwards. If object is hit, adding a bullet impact to that object according to the objects normals. Impact stays for 10 seconds and disappears.
     private void Shoot()
     {
         Ray ray = cam.ViewportPointToRay(new Vector3(.5f, .5f, 0f));
@@ -194,7 +210,7 @@ public class PlayerController : MonoBehaviour
 
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
-            Debug.Log("We hit " + hit.collider.gameObject.name);
+            // Debug.Log("We hit " + hit.collider.gameObject.name);
 
             GameObject bulletImpactObject = Instantiate(bulletImpact, hit.point + (hit.normal * .002f), Quaternion.LookRotation(hit.normal, Vector3.up));
 
@@ -202,8 +218,9 @@ public class PlayerController : MonoBehaviour
         }
 
         shotCounter = allGuns[selectedGun].timeBetweenShots;
-
         heatCounter += allGuns[selectedGun].heatPerShot;
+
+        // Checking if gun is overheated and displaying a overheated message if true.
         if(heatCounter >= maxHeat)
         {
             heatCounter = maxHeat;
@@ -213,16 +230,19 @@ public class PlayerController : MonoBehaviour
             UIController.instance.overheatedMessage.gameObject.SetActive(true);
         }
 
+        // Displaying the muzzleflash.
         allGuns[selectedGun].muzzleFlash.SetActive(true);
         muzzleCounter = muzzleDisplayTime;
     }
 
+    // Setting camera to viewpoints position & rotation.
     private void LateUpdate()
     {
         cam.transform.position = viewPoint.position;
         cam.transform.rotation = viewPoint.rotation;
     }
 
+    // Turning off all guns and then displaying the active one in array. Also making sure muzzleflash is always off when switching gun.
     void SwitchGun()
     {
         foreach(Gun gun in allGuns)

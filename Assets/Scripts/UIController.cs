@@ -6,6 +6,7 @@ using UnityEngine.UI;
 
 public class UIController : MonoBehaviour
 {
+    // Making script accessable within other scripts
     public static UIController instance;
 
     private void Awake()
@@ -13,16 +14,15 @@ public class UIController : MonoBehaviour
         instance = this;
     }
 
+    // UI elements
     public TMP_Text overheatedMessage;
     public Slider weaponTempSlider;
 
-    // Start is called before the first frame update
     void Start()
     {
         
     }
 
-    // Update is called once per frame
     void Update()
     {
         
